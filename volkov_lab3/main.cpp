@@ -24,7 +24,7 @@ int main()
 	FILE* file; //Пременная для работы с файлом
 	LPVOID tmp; //Указатель на пустой объект.
 	emp data_struct; //Заводим экземляр emp
-	char filename[] = "student_data.dat"; //Сохраняем название файла.
+	char filename[] = "students.dat"; //Сохраняем название файла.
 	CHAR name[] = "child.exe"; //Сохраняем название второго процесса.
 	CHAR com_list[100] = { 0 }; //Заводим переменную для передачи команд во вторичный процесс.
 	string str; //Создаем строки для последующей записи в них данных одинарной записи.
@@ -68,13 +68,16 @@ int main()
 
 	//Вводим данные для передачи в дочерний процесс.
 	cout << "\n\n\tПередаем данные в процесс Child";
-	cout << "\n\n\tВведите номер, имя, оценку через пробел: ";
-	cin >> data_struct.num, data_struct.name, data_struct.grade;
+	cout << "\n\n\tВведите номер: ";
+	cin >> data_struct.num; 
+	cout << "\n\n\tВведите имя: ";
+	cin >> data_struct.name;
+	cout << "\n\n\tВведите оценку: ";
+	cin >> data_struct.grade;
 
-	//Преобразуем к строке данные сохраненные в EMP.
+	//Преобразуем к строке данные сохраненные структуру.
 	snprintf(com_list, sizeof com_list, "%s: Номер: %i Имя: %s Оценка: %f", filename, data_struct.num, data_struct.name, data_struct.grade);
 
-	//system("pause");
 	//Запускаем процесс. Передаем необходимые данные в качестве параметров.
 	//В случае неудачи выводим сообщение об ошибке и завершаем текущий процесс.
 	if (!CreateProcess(name, com_list, NULL, NULL,
