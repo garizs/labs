@@ -6,55 +6,81 @@ using namespace std;
 int length;
 HANDLE hSemaphore;
 
-CRITICAL_SECTION cs;
-DWORD WINAPI work(a)
-{
-	int j = 0;
-	cin >> time;
-	for (int i = 0; i < length; i++) {
-		if (a > mas[i]){
-			int buf = mas[i];
-			mas[i] = 0;
-			mas[j] = buf;
-			j++;
-			ReleaseSemaphore(hSemaphore, 1, NULL);
-			Sleep(time);
-		}
+int a;
 
-	}
-	int i, j;
-	for (j = 0; j < 10; j++)
+CRITICAL_SECTION cs;
+
+
+DWORD WINAPI work(LPVOID pr)
+{
+	//Сразу входим в критическую секцию, чтобы поток SumElement не начал суммировать раньше времени.
+	EnterCriticalSection(&cs);
+
+	//sl для сна
+	DWORD sl;
+	//ELEM_READY чтобы знать, когда можно потоку main отобразить элемент.
+	bool ELEM_READY = false;
+	//tmp для перетасовки массива
+	float tmp;
+
+	cout << "\nПоток work: введем время для `сна`: "; cin >> sl;
+	cout << endl;
+	int k = 0;
+	for (int i = 0; i < length; i++)
 	{
-		// ������ � ����������� ������
-		EnterCriticalSection(&cs);
-		for (i = 0; i < 10; i++)
+		if (((int*)pr)[i] > a)
 		{
-			cout << j << ' '; 
-			cout.flush();
-		}
-		cout << endl;
-		// ������� �� ����������� ������
-		LeaveCriticalSection(&cs);
+			((int*)pr)[k] = ((int*)pr)[i];
+			k++;
+			ReleaseSemaphore(hSemaphore, 1, NULL);
+			Sleep(sl);
+		}		
 	}
+
+	for (UINT i = k; i < length; i++){
+		((int*)pr)[i] = 0;
+	}
+
+	//Массив обработан, выходим из критической секции, даем волю SumElement
+	LeaveCriticalSection(&cs);
+
 	return 0;
 }
 
-DWORD WINAPI SumElement(LPVOID)
+//Функция потока SumElement
+DWORD WINAPI SumElement(LPVOID pr)
 {
-	WaitForSingleObject(work, INFINITE);
+	Sleep(500);
+	EnterCriticalSection(&cs);
 
+	int sum = 0;
+
+	cout << "\nИтоговый массив: " << endl;
+	//Суммируем
+	for (int i = 0; i < length; i++){
+		sum += ((int*)pr)[i];
+		cout << ((int*)pr)[i] << ' ';
+	}
+ 
+	cout << "\n\nПоток SumElement: сумма итогового массива: " << sum;
+	LeaveCriticalSection(&cs);
 	return 0;
 }
 
 int main()
 {
-	cin >> length;
+	cout << "Введем размерность массива: "; cin >> length; cout << endl;
 	int* mas = new int[length];
+	cout << "Введем элементы массива (целочисленные!)" << endl;
 	for (int i = 0; i < length; i++) {
 		cin >> mas[i];
 	}
-	int k, a;
-	cin >> k;
+	cout << "Размерность: " << length << endl;
+	cout << "Массив: " << endl;
+	for (int i = 0; i < length; i++){
+		cout << mas[i] << " ";
+	}
+	cout << "\nВведем число для сравнения: " << endl;
 	cin >> a;
 	HANDLE hThread;
 	DWORD IDThread;
@@ -62,34 +88,23 @@ int main()
 	if (hSemaphore == NULL)
 		return GetLastError();
 
-	// �������������� ����������� ������
-	//InitializeCriticalSection(&cs);
-	work_thread = CreateThread(NULL, 0, work, a, 0, &IDThread);
-	sum_thread = CreateThread(NULL, 0, SumElement, NULL, 0, &IDThread);
-
+	InitializeCriticalSection(&cs);
+	HANDLE work_thread = CreateThread(NULL, 0, work, mas, 0, &IDThread);
 	if (work_thread == NULL)
 		return GetLastError();
-
+	HANDLE sum_thread = CreateThread(NULL, 0, SumElement, mas, 0, &IDThread);
+	if (sum_thread == NULL)
+		return GetLastError();
 	for (int i = 0; i < length; i++) {
 		WaitForSingleObject(hSemaphore, INFINITE);
-		cout << mas[i] << ' ' << flush;
+		cout << mas[i] << "\t<-- новый элемент массива" << endl << flush;
 	}
-	//for (j = 10; j < 20; j++)
-	//{
-	//	// ������ � ����������� ������
-	//	EnterCriticalSection(&cs);
-	//	for (i = 0; i < 10; i++)
-	//	{
-	//		cout << j << ' '; 
-	//		cout.flush();
-	//	}
-	//	cout << endl;
-	//	
-	//	LeaveCriticalSection(&cs);
-	//}
-	//
-	//DeleteCriticalSection(&cs);
-	//
-	//WaitForSingleObject(hThread, INFINITE);
+	WaitForSingleObject(sum_thread, INFINITE);
+	CloseHandle(hSemaphore);
+	CloseHandle(work_thread);
+	CloseHandle(sum_thread);
+
+	cout << endl << "Готово!";
+
 	return 0;
 }
